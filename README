@@ -1,0 +1,15 @@
+files:
+edge.cpp -> edge server receives client connections, distributes queries to backend servers and responds to client on receiving computation results
+client.cpp -> initiates the queries to edge server, receives response from the edge server directly; takes query-filename as input
+server_and.cpp -> responsible for AND computations
+server_or.cpp -> responsible for OR computations
+
+temp files generated:
+or.txt, and.txt
+	These files are the result of splitting the main query file from client into two parts. Format for each line - <lineNumber, operand1, operand2>
+
+or_results.txt, and_results.txt
+	These files are used to temporarily store the results of OR and AND computatons. Format for each line - <linNumber, result>. 
+
+results.txt
+or_results.txt and and_results.txt files are merged by the edge server, deleting line numbers in the process to generate the results to return to client 
