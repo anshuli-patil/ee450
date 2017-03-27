@@ -18,6 +18,7 @@
 #define TCP_PORT "23299"  // the port users will be connecting to
 #define UDP_PORT_AND "22299" // the port edge will use a client for the backend servers 
 #define UDP_PORT_OR "21299" 
+#define UDP_PORT_CLIENT "24299" // edge server uses a static port when it's a client for server_(and|or)
 #define LOCALHOST "127.0.0.1"
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -165,19 +166,49 @@ void *get_in_addr(struct sockaddr *sa)
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void sendRequest(char *request, string port) {
+int get_results_backend(string backendType) {
   int sockfd;
   struct addrinfo hints, *servinfo, *p;
   int rv;
   int numbytes;
 
+  /* TODO read from file - and.txt if port == UDP_PORT_AND, else or.txt */
+  //char const *request = "testing the client";
+  ifstream requestfile;
+  if(backendType.compare("and") == 0) {
+    requestfile.open("and.txt");
+  } else {
+    requestfile.open("or.txt");
+  }
+
+  string request_str;
+  string value;
+  while(requestfile) {
+    if(!getline(requestfile, value, '\n')) {
+      break;
+    } else {
+      request_str.append(string(value, 0, value.length()));
+      request_str.append("\n");
+    }
+  }
+  const char *request = request_str.c_str();
+  //cout << request << endl;
+  requestfile.close();
+
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_DGRAM;
 
-  if ((rv = getaddrinfo(LOCALHOST, port, &hints, &servinfo)) != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-    return 1;
+  if(backendType.compare("and") == 0) {
+    if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_AND, &hints, &servinfo)) != 0) {
+      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+      return 1;
+    }
+  } else { // OR
+      if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_OR, &hints, &servinfo)) != 0) {
+      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+      return 1;
+    }
   }
 
   // loop through all the results and make a socket
@@ -206,10 +237,14 @@ void sendRequest(char *request, string port) {
 
   printf("talker: sent %d bytes to %s\n", numbytes, request);
   close(sockfd);
+  return 0;
 }
 
-int main(void)
-{
+int main(void) {
+  get_results_backend("and");
+}
+
+int start_server() {
   int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
   int numbytes;  
   char buf[MAXDATASIZE];
@@ -227,7 +262,6 @@ int main(void)
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE; // use my IP
 
-  // TODO connection using the port number assigned to client
   if ((rv = getaddrinfo(NULL, TCP_PORT, &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     return 1;
@@ -308,7 +342,7 @@ int main(void)
       queriesfile << buf << endl;
       splitJobs();
 
-      //sendRequest();
+      get_results_backend("and");
 
       for(i = 0; i < 5; i++) {
         if (send(new_fd, ":-)", 3, 0) == -1) {

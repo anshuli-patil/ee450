@@ -49,10 +49,10 @@ string compute_and(string operand1_str, string operand2_str) {
 }
 
 void computeResults() {
-  fstream queries("and.txt");
+  fstream queries("and_temp.txt");
 
   ofstream andfile;
-  andfile.open ("and_results.txt");
+  andfile.open("and_results.txt");
 
   string value;
 
@@ -102,8 +102,11 @@ void *get_in_addr(struct sockaddr *sa)
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(void)
-{
+int main(void) {
+  start_server();
+}
+
+int start_server() {
   int sockfd;
   struct addrinfo hints, *servinfo, *p;
   int rv;
@@ -150,20 +153,27 @@ int main(void)
   printf("listener: waiting to recvfrom...\n");
 
   addr_len = sizeof their_addr;
-  if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
-    (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-    perror("recvfrom");
-    exit(1);
+
+
+  while(true) {
+    if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
+      (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+      perror("recvfrom");
+      exit(1);
+    }
+
+    printf("listener: packet is %d bytes long\n", numbytes);
+    buf[numbytes] = '\0';
+
+    ofstream requestfile;
+    requestfile.open("and_temp.txt");
+    requestfile << buf << endl;
+    requestfile.close();
+
+    computeResults();
+    
+    printf("listener: packet contains \"%s\"\n", buf);
   }
-
-  printf("listener: got packet from %s\n",
-    inet_ntop(their_addr.ss_family,
-      get_in_addr((struct sockaddr *)&their_addr),
-      s, sizeof s));
-  printf("listener: packet is %d bytes long\n", numbytes);
-  buf[numbytes] = '\0';
-  printf("listener: packet contains \"%s\"\n", buf);
-
   close(sockfd);
 
   return 0;
