@@ -13,7 +13,9 @@
 #include <netdb.h>
 
 #define UDP_PORT "22299" // the port that the server will listen on, for requests from edge server
+#define UDP_PORT_EDGE "24299"
 #define MAXBUFLEN 100
+#define LOCALHOST "127.0.0.1"
 
 using namespace std;
 
@@ -25,6 +27,25 @@ string append_zeroes(string operand, int numZeroes) {
   }
 
   return zeroes.append(operand);
+}
+
+string ltrim_zeroes(string result) {
+  int i = 0;
+  bool is_leading = true;
+  string final_result = "";
+  for(int i = 0; i < result.length(); i++) {
+    if(is_leading == true && result.at(i) == '0') {
+      continue;
+    } else {
+      is_leading = false;
+      final_result += result.at(i);
+    }
+  }
+  if(final_result.length() == 0) {
+    final_result += '0';
+  }
+
+  return final_result;
 }
 
 string compute_and(string operand1_str, string operand2_str) {
@@ -44,11 +65,11 @@ string compute_and(string operand1_str, string operand2_str) {
     }
   }
 
-  return result;
+  return ltrim_zeroes(result);
 
 }
 
-void computeResults() {
+void compute_results() {
   fstream queries("and_temp.txt");
 
   ofstream andfile;
@@ -102,8 +123,64 @@ void *get_in_addr(struct sockaddr *sa)
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(void) {
-  start_server();
+int send_results() {
+  int sockfd;
+  struct addrinfo hints, *servinfo, *p;
+  int rv;
+  int numbytes;
+
+  ifstream responsefile;
+  responsefile.open("and_results.txt");
+  
+  string response_str;
+  string value;
+  while(responsefile) {
+    if(!getline(responsefile, value, '\n')) {
+      break;
+    } else {
+      response_str.append(string(value, 0, value.length()));
+      response_str.append("\n");
+    }
+  }
+  const char *response = response_str.c_str();
+  responsefile.close();
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_EDGE, &hints, &servinfo)) != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    return 1;
+  }
+  
+  // loop through all the results and make a socket
+  for(p = servinfo; p != NULL; p = p->ai_next) {
+    if ((sockfd = socket(p->ai_family, p->ai_socktype,
+        p->ai_protocol)) == -1) {
+      perror("talker: socket");
+      continue;
+    }
+
+    break;
+  }
+
+  if (p == NULL) {
+    fprintf(stderr, "talker: failed to create socket\n");
+    return 2;
+  }
+
+  if ((numbytes = sendto(sockfd, response, strlen(response), 0,
+       p->ai_addr, p->ai_addrlen)) == -1) {
+    perror("talker: sendto");
+    exit(1);
+  }
+
+  freeaddrinfo(servinfo);
+
+  printf("talker: sent %d bytes to %s\n", numbytes, response);
+  close(sockfd);
+  return 0;
 }
 
 int start_server() {
@@ -170,11 +247,17 @@ int start_server() {
     requestfile << buf << endl;
     requestfile.close();
 
-    computeResults();
-    
+    compute_results();
+    send_results();
+
     printf("listener: packet contains \"%s\"\n", buf);
   }
   close(sockfd);
 
   return 0;
 }
+
+int main(void) {
+  start_server();
+}
+
