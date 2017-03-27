@@ -59,8 +59,8 @@ int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
 }
 
 void combineResults() {
-  fstream andfile("and_results.txt");
-  fstream orfile("or_results.txt");
+  fstream andfile("and_results_edge.txt");
+  fstream orfile("or_results_edge.txt");
   ofstream result;
   result.open ("results.txt");
 
@@ -167,7 +167,7 @@ void *get_in_addr(struct sockaddr *sa)
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int get_reponse_backend(string backendType) {
+int get_response_backend(string backendType) {
   int sockfd;
   struct addrinfo hints, *servinfo, *p;
   int rv;
@@ -230,6 +230,10 @@ int get_reponse_backend(string backendType) {
 
   close(sockfd);
   // TODO output to file
+  ofstream requestfile;
+  requestfile.open(backendType + "_results_edge.txt");
+  requestfile << buf << endl;
+  requestfile.close();
 
   return 0;
 }
@@ -310,7 +314,7 @@ int send_queries_backend(string backendType) {
 
 int main(void) {
   send_queries_backend("and");
-  get_reponse_backend("and");
+  get_response_backend("and");
 }
 
 int start_server() {
@@ -412,7 +416,10 @@ int start_server() {
       splitJobs();
 
       send_queries_backend("and");
-      get_reponse_backend("and");
+      get_response_backend("and");
+
+      send_queries_backend("or");
+      get_response_backend("or");
 
       for(i = 0; i < 5; i++) {
         if (send(new_fd, ":-)", 3, 0) == -1) {
