@@ -1,12 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -109,8 +107,6 @@ void split_jobs() {
   ofstream orfile;
   orfile.open ("or.txt");
 
-  //cout << compute_or("101", "10010") << endl;
-
   while(in) {
     string operatorType = "";
 
@@ -131,14 +127,15 @@ void split_jobs() {
       getline(in, value, '\n');
       string operand2_str = string(value, 0, value.length());
 
-      if(operatorType.compare("and") == 0) {
+      // TODO FIX operatorType.compare("and") == 0
+      if(operatorType.find("and") != std::string::npos) {
+      //if(operatorType.compare("and") == 0) {
         andfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
-      } else if(operatorType.compare("or") == 0) {
+      } else { // if(operatorType.compare("or") == 0) {
         orfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
       } 
     }
     lineNumber += 1;
-
   }
 
   andfile.close();
@@ -264,7 +261,6 @@ int send_queries_backend(string backendType) {
     }
   }
   const char *request = request_str.c_str();
-  //cout << request << endl;
   requestfile.close();
 
   memset(&hints, 0, sizeof hints);
@@ -312,7 +308,7 @@ int send_queries_backend(string backendType) {
   return 0;
 }
 
-const char* read_combined_results() {
+string read_combined_results() {
   ifstream responsefile;
   responsefile.open("results.txt");
   
@@ -326,9 +322,9 @@ const char* read_combined_results() {
       response_str.append("\n");
     }
   }
-  const char *response = response_str.c_str();
+  
   responsefile.close();
-  return response;
+  return response_str;
 }
 
 int start_server() {
@@ -413,7 +409,7 @@ int start_server() {
     printf("server: got connection from %s\n", s);
 
     if (!fork()) { // this is the child process
-      
+
       close(sockfd); // child doesn't need the listener
       ofstream queriesfile;
       queriesfile.open ("edge_file.txt");
@@ -425,8 +421,9 @@ int start_server() {
 
       buf[numbytes] = '\0';
       printf("client: received '%s'\n",buf);
-
       queriesfile << buf << endl;
+      queriesfile.close();
+
       split_jobs();
 
       send_queries_backend("and");
@@ -437,16 +434,15 @@ int start_server() {
 
       combine_results();
 
-      const char *final_results = read_combined_results();
-
-      for(i = 0; i < 5; i++) {
-        if (send(new_fd, final_results, 3, 0) == -1) {
-          perror("send");
-        }
+      string final_results = read_combined_results();
+      const char *response = final_results.c_str();
+      
+      if (send(new_fd, response, final_results.length(), 0) == -1) {
+        perror("send");
       }
       
+      
       close(new_fd);
-      queriesfile.close();
       exit(0);
     }
     close(new_fd);  // parent doesn't need this
@@ -461,4 +457,5 @@ int main(void) {
   get_response_backend("and");
   */
   start_server();
+  //split_jobs();
 }
