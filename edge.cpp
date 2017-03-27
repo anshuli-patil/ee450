@@ -58,7 +58,7 @@ int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
   return lineNumber;
 }
 
-void combineResults() {
+void combine_results() {
   fstream andfile("and_results_edge.txt");
   fstream orfile("or_results_edge.txt");
   ofstream result;
@@ -99,7 +99,7 @@ void combineResults() {
 
 }
 
-void splitJobs() {
+void split_jobs() {
   fstream in("edge_file.txt");
   string value;
   int lineNumber = 0;
@@ -312,9 +312,23 @@ int send_queries_backend(string backendType) {
   return 0;
 }
 
-int main(void) {
-  send_queries_backend("and");
-  get_response_backend("and");
+const char* read_combined_results() {
+  ifstream responsefile;
+  responsefile.open("results.txt");
+  
+  string response_str;
+  string value;
+  while(responsefile) {
+    if(!getline(responsefile, value, '\n')) {
+      break;
+    } else {
+      response_str.append(string(value, 0, value.length()));
+      response_str.append("\n");
+    }
+  }
+  const char *response = response_str.c_str();
+  responsefile.close();
+  return response;
 }
 
 int start_server() {
@@ -413,7 +427,7 @@ int start_server() {
       printf("client: received '%s'\n",buf);
 
       queriesfile << buf << endl;
-      splitJobs();
+      split_jobs();
 
       send_queries_backend("and");
       get_response_backend("and");
@@ -421,8 +435,12 @@ int start_server() {
       send_queries_backend("or");
       get_response_backend("or");
 
+      combine_results();
+
+      const char *final_results = read_combined_results();
+
       for(i = 0; i < 5; i++) {
-        if (send(new_fd, ":-)", 3, 0) == -1) {
+        if (send(new_fd, final_results, 3, 0) == -1) {
           perror("send");
         }
       }
@@ -435,4 +453,12 @@ int start_server() {
   }
 
   return 0;
+}
+
+int main(void) {
+  /*
+  send_queries_backend("and");
+  get_response_backend("and");
+  */
+  start_server();
 }

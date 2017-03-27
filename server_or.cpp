@@ -1,8 +1,21 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+ 
 #define UDP_PORT "21299" // the port that the server will listen on, for requests from edge server
+#define UDP_PORT_EDGE "24299"
+#define MAXBUFLEN 100
+#define LOCALHOST "127.0.0.1"
 
 using namespace std;
 
@@ -56,7 +69,7 @@ string compute_or(string operand1_str, string operand2_str) {
 }
 
 void compute_results() {
-  fstream queries("or.txt");
+  fstream queries("or_temp.txt");
 
   ofstream orfile;
   orfile.open ("or_results.txt");

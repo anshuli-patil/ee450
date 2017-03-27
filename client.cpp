@@ -33,9 +33,8 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(int argc, char *argv[])
-{
-	fstream in(argv[1]); // the queries file
+int start_server(char *filename) {
+	fstream in(filename); // the queries file
 
 	int sockfd, numbytes;  
 	char buf[MAXDATASIZE];
@@ -107,4 +106,8 @@ int main(int argc, char *argv[])
 	close(sockfd);
 
 	return 0;
+}
+
+int main(int argc, char *argv[]) {
+	start_server(argv[1]);
 }
