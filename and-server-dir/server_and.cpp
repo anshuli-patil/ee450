@@ -11,8 +11,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
- 
-#define UDP_PORT "21299" // the port that the server will listen on, for requests from edge server
+
+#define UDP_PORT "22299" // the port that the server will listen on, for requests from edge server
 #define UDP_PORT_EDGE "24299"
 #define MAXBUFLEN 100
 #define LOCALHOST "127.0.0.1"
@@ -48,7 +48,7 @@ string ltrim_zeroes(string result) {
   return final_result;
 }
 
-string compute_or(string operand1_str, string operand2_str) {
+string compute_and(string operand1_str, string operand2_str) {
   string result = "";
   if(operand1_str.length() > operand2_str.length()) {
     operand2_str = append_zeroes(operand2_str, operand1_str.length() - operand2_str.length());
@@ -58,7 +58,7 @@ string compute_or(string operand1_str, string operand2_str) {
 
   int i = 0;
   for(i = 0; i < operand1_str.length(); i++) {
-    if(operand1_str.at(i) == '1' || operand2_str.at(i) == '1') {
+    if(operand1_str.at(i) == '1' && operand2_str.at(i) == '1') {
       result.append("1");
     } else {
       result.append("0");
@@ -66,14 +66,15 @@ string compute_or(string operand1_str, string operand2_str) {
   }
 
   return ltrim_zeroes(result);
+
 }
 
 void compute_results() {
-  fstream queries("or_temp.txt");
+  fstream queries("and_temp.txt");
 
-  ofstream orfile;
-  orfile.open ("or_results.txt");
-
+  ofstream andfile;
+  andfile.open("and_results.txt");
+  int countOperations = 0;
   string value;
 
    while(queries) {
@@ -83,6 +84,7 @@ void compute_results() {
     if(!getline(queries, value, ',')) {
       break;
     } else {
+      countOperations += 1;
       lineNumber = string(value, 0, value.length());
 
       // check if just newline before EOF
@@ -96,20 +98,25 @@ void compute_results() {
       getline(queries, value, '\n');
       string operand2_str = string(value, 0, value.length());
 
-      string result = compute_or(operand1_str, operand2_str);
+      string result = compute_and(operand1_str, operand2_str);
       // output to results file with line number
-      orfile << lineNumber << "," << result << endl;
-      cout << lineNumber << "," << result << endl;
+      andfile << lineNumber << "," << result << endl;
+      //cout << lineNumber << "," << result << endl;
+      cout << operand1_str << " and " << operand2_str << " = " << result << endl;
+
       //cout << operand1_str << " " <<operand2_str << endl;
       //cout << "------------------------------" << endl;
     }
 
   }
 
-  orfile.close();
+  printf("The Server AND has successfully received %d lines from the edge server and finished all AND computations.\n", countOperations - 1);
+
+  andfile.close();
   queries.close();
 
 }
+
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -128,7 +135,7 @@ int send_results() {
   int numbytes;
 
   ifstream responsefile;
-  responsefile.open("or_results.txt");
+  responsefile.open("and_results.txt");
   
   string response_str;
   string value;
@@ -176,7 +183,9 @@ int send_results() {
 
   freeaddrinfo(servinfo);
 
-  printf("talker: sent %d bytes to %s\n", numbytes, response);
+  printf("The Server AND has successfully finished sending all computation results to the edge server.\n");
+  //printf("talker: sent %d bytes to %s\n", numbytes, response);
+  
   close(sockfd);
   return 0;
 }
@@ -225,7 +234,8 @@ int start_server() {
 
   freeaddrinfo(servinfo);
 
-  printf("listener: waiting to recvfrom...\n");
+  //printf("listener: waiting to recvfrom...\n");
+  printf("The Server AND is up and running using UDP on port %s\n", UDP_PORT);
 
   addr_len = sizeof their_addr;
 
@@ -237,18 +247,19 @@ int start_server() {
       exit(1);
     }
 
-    printf("listener: packet is %d bytes long\n", numbytes);
+    printf("The Server AND start receiving lines from the edge server for AND computation. The computation results are:\n");
+
+    //printf("listener: packet is %d bytes long\n", numbytes);
     buf[numbytes] = '\0';
 
     ofstream requestfile;
-    requestfile.open("or_temp.txt");
+    requestfile.open("and_temp.txt");
     requestfile << buf << endl;
     requestfile.close();
 
     compute_results();
     send_results();
 
-    printf("listener: packet contains \"%s\"\n", buf);
   }
   close(sockfd);
 
@@ -258,3 +269,4 @@ int start_server() {
 int main(void) {
   start_server();
 }
+

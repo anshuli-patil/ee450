@@ -27,6 +27,7 @@ using namespace std;
 // global variables
 string orResultStr;
 string andResultStr;
+int andLines, orLines;
 
 int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
   int lineNumber = -1;
@@ -127,17 +128,18 @@ void split_jobs() {
       getline(in, value, '\n');
       string operand2_str = string(value, 0, value.length());
 
-      // TODO FIX operatorType.compare("and") == 0
       if(operatorType.find("and") != std::string::npos) {
-      //if(operatorType.compare("and") == 0) {
+        andLines += 1;
         andfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
-      } else { // if(operatorType.compare("or") == 0) {
+      } else if(operatorType.find("or") != std::string::npos) {
+        orLines += 1;
         orfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
       } 
     }
     lineNumber += 1;
   }
 
+  printf("The edge server has received %d lines from the client using TCP over port %s.\n", lineNumber, TCP_PORT);
   andfile.close();
   orfile.close();
   in.close();
@@ -240,13 +242,12 @@ int send_queries_backend(string backendType) {
   struct addrinfo hints, *servinfo, *p;
   int rv;
   int numbytes;
+  int linesCount = 0;
 
-  /* TODO read from file - and.txt if port == UDP_PORT_AND, else or.txt */
-  //char const *request = "testing the client";
   ifstream requestfile;
   if(backendType.compare("and") == 0) {
     requestfile.open("and.txt");
-  } else {
+  } else if(backendType.compare("or") == 0) {
     requestfile.open("or.txt");
   }
 
@@ -272,7 +273,7 @@ int send_queries_backend(string backendType) {
       fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
       return 1;
     }
-  } else { // OR
+  } else if(backendType.compare("or") == 0) {
       if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_OR, &hints, &servinfo)) != 0) {
       fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
       return 1;
@@ -303,9 +304,9 @@ int send_queries_backend(string backendType) {
 
   freeaddrinfo(servinfo);
 
-  printf("talker: sent %d bytes to %s\n", numbytes, request);
+  //printf("talker: sent %d bytes to %s\n", numbytes, request);
   close(sockfd);
-  return 0;
+  return linesCount;
 }
 
 string read_combined_results() {
@@ -393,7 +394,8 @@ int start_server() {
     exit(1);
   }
 
-  printf("server: waiting for connections...\n");
+  //printf("server: waiting for connections...\n");
+  printf("The edge server is up and running.\n");
 
   while(1) {  // main accept() loop
     sin_size = sizeof their_addr;
@@ -424,13 +426,22 @@ int start_server() {
       queriesfile << buf << endl;
       queriesfile.close();
 
+      orLines = 0;
+      andLines = 0;
       split_jobs();
 
-      send_queries_backend("and");
-      get_response_backend("and");
-
       send_queries_backend("or");
+      printf("The edge has successfully sent %d lines to Backend-Server OR.\n", orLines);
+
+      printf("The edge server start receiving the computation results from Backend-Server OR and Backend-Server AND using UDP over port %s.\n", UDP_PORT_CLIENT);
       get_response_backend("or");
+      
+      if (!fork()) { // this is a child process
+
+        send_queries_backend("and");
+        printf("The edge has successfully sent %d lines to Backend-Server AND.\n", andLines);
+        get_response_backend("and");
+      }
 
       combine_results();
 
