@@ -247,7 +247,7 @@ int start_server() {
       exit(1);
     }
 
-    printf("The Server AND start receiving lines from the edge server for AND computation. The computation results are:\n");
+    printf("The Server AND start receiving lines from the edge server for AND computation.\nThe computation results are:\n");
 
     //printf("listener: packet is %d bytes long\n", numbytes);
     buf[numbytes] = '\0';
@@ -259,7 +259,7 @@ int start_server() {
 
     compute_results();
     send_results();
-
+    
   }
   close(sockfd);
 

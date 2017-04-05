@@ -245,7 +245,7 @@ int start_server() {
     }
 
     //printf("listener: packet is %d bytes long\n", numbytes);
-    printf("The Server OR start receiving lines from the edge server for OR computation. The computation results are:\n");
+    printf("The Server OR start receiving lines from the edge server for OR computation.\nThe computation results are:\n");
     buf[numbytes] = '\0';
 
     ofstream requestfile;
