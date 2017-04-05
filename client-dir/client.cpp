@@ -53,8 +53,7 @@ int start_server(char *filename) {
 
 	// loop through all the results and connect to the first we can
 	for(p = servinfo; p != NULL; p = p->ai_next) {
-		if ((sockfd = socket(p->ai_family, p->ai_socktype,
-				p->ai_protocol)) == -1) {
+		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
 			perror("client: socket");
 			continue;
 		}
@@ -77,14 +76,13 @@ int start_server(char *filename) {
 			s, sizeof s);
 	printf("client: connecting to %s\n", s);
 
-	freeaddrinfo(servinfo); // all done with this structure
+	freeaddrinfo(servinfo); 
 	string value;
 
 	while(in) {
 		if(!getline(in, value, '\n')) {
 	      break;
 	    } else {
-			// getline(in, value, '\n');
 			value.append("\n");
 			cout << value << endl;
 			if (send(sockfd, &value, value.length() + 1, 0) == -1) {
@@ -92,8 +90,16 @@ int start_server(char *filename) {
 			}
 		}
 	}
-	in.close();
+	/*
+	value = "Q";
+	if (send(sockfd, &value, value.length() + 1, 0) == -1) {
+        perror("send");
+	}
+	cout << "End of transmission " << value << endl;
+	*/
 
+	in.close();
+	/*
 	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
 	    perror("recv");
 	    exit(1);
@@ -102,6 +108,28 @@ int start_server(char *filename) {
 	buf[numbytes] = '\0';
 
 	printf("client: received '%s'\n",buf);
+	*/
+
+	cout << "Receiving data from server: " << endl;
+	while ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) != -1) {
+		//cout << numbytes << endl;
+		if(numbytes == -1) {
+		  return 1;
+		}
+
+		buf[numbytes] = '\0';
+		//cout << "printing to file " << endl;
+		if(buf[0] == 'Q') {
+			break;
+		}
+		cout << buf;
+		/*
+		if(numbytes < MAXDATASIZE - 1) {
+		  cout << "Finished received queries" << endl;
+		  break;
+		}*/
+		if()
+	}
 
 	close(sockfd);
 

@@ -20,7 +20,7 @@
 #define LOCALHOST "127.0.0.1"
 #define MAXDATASIZE 100 
 #define BACKLOG 10   
-#define MAXBUFLEN 100
+#define MAXBUFLEN 1500
 
 using namespace std;
 
@@ -213,7 +213,7 @@ int get_response_backend(string backendType) {
   printf("listener: waiting to recvfrom...\n");
 
   addr_len = sizeof their_addr;
-  if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
+  if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1 , 0,
     (struct sockaddr *)&their_addr, &addr_len)) == -1) {
     perror("recvfrom");
     exit(1);
@@ -280,7 +280,6 @@ int send_queries_backend(string backendType) {
     }
   }
 
-  // loop through all the results and make a socket
   for(p = servinfo; p != NULL; p = p->ai_next) {
     if ((sockfd = socket(p->ai_family, p->ai_socktype,
         p->ai_protocol)) == -1) {
@@ -301,6 +300,69 @@ int send_queries_backend(string backendType) {
     exit(1);
   }
 
+  freeaddrinfo(servinfo);
+
+  //printf("talker: sent %d bytes to %s\n", numbytes, request);
+  close(sockfd);
+  return linesCount;
+}
+
+int send_queries_backend_bak(string backendType) {
+  int sockfd;
+  struct addrinfo hints, *servinfo, *p;
+  int rv;
+  int numbytes;
+  int linesCount = 0;
+
+  ifstream requestfile;
+  if(backendType.compare("and") == 0) {
+    requestfile.open("and.txt");
+  } else if(backendType.compare("or") == 0) {
+    requestfile.open("or.txt");
+  }
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  if(backendType.compare("and") == 0) {
+    if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_AND, &hints, &servinfo)) != 0) {
+      return 1;
+    }
+  } else if(backendType.compare("or") == 0) {
+      if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_OR, &hints, &servinfo)) != 0) {
+      return 1;
+    }
+  }
+
+  for(p = servinfo; p != NULL; p = p->ai_next) {
+    if ((sockfd = socket(p->ai_family, p->ai_socktype,
+        p->ai_protocol)) == -1) {
+      perror("talker: socket");
+      continue;
+    }
+
+    break;
+  }
+
+  if (p == NULL) {
+    fprintf(stderr, "talker: failed to create socket\n");
+    return 2;
+  }
+
+  string value;
+
+  while(requestfile) {
+    if(!getline(requestfile, value, '\n')) {
+        break;
+      } else {
+      value.append("\n");
+      cout << value << endl;
+      if ((numbytes = sendto(sockfd, &value, value.length(), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+          perror("send");
+      }
+    }
+  }
   freeaddrinfo(servinfo);
 
   //printf("talker: sent %d bytes to %s\n", numbytes, request);
@@ -393,7 +455,7 @@ int start_server() {
     inet_ntop(their_addr.ss_family,
       get_in_addr((struct sockaddr *)&their_addr),
       s, sizeof s);
-    printf("server: got connection from %s\n", s);
+    //printf("server: got connection from %s\n", s);
 
     if (!fork()) { 
       //child process
@@ -402,20 +464,31 @@ int start_server() {
       ofstream queriesfile;
       queriesfile.open ("edge_file.txt");
 
-      if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
-        exit(1);
-      }
+      //cout << "Receiving data from client" << endl;
+      while ((numbytes = recv(new_fd, buf, MAXDATASIZE - 1, 0)) != -1) {
+        //cout << numbytes << endl;
+        if(numbytes == -1) {
+          return 1;
+        }
 
-      buf[numbytes] = '\0';
-      queriesfile << buf << endl;
+        buf[numbytes] = '\0';
+        //cout << "printing to file " << endl;
+        cout << buf;
+        queriesfile << buf;
+
+        if(numbytes < MAXDATASIZE - 1) {
+          //cout << "Finished received queries" << endl;
+          break;
+        }
+      }
+      
+      //queriesfile << buf << endl;
+      
       queriesfile.close();
 
       orLines = 0;
       andLines = 0;
       split_jobs();
-
-      // TODO Check if this hasn't been printed in the AND thread
-      printf("The edge server start receiving the computation results from Backend-Server OR and Backend-Server AND using UDP over port %s.\nThe computation results are:\n", UDP_PORT_CLIENT);
       /*
       pid_t and_proc, or_proc;
       and_proc = fork();
@@ -447,22 +520,48 @@ int start_server() {
       printf("The edge has successfully sent %d lines to Backend-Server OR.\n", orLines);
       get_response_backend("or");
 
+      printf("The edge server start receiving the computation results from Backend-Server OR and Backend-Server AND using UDP over port %s.\nThe computation results are:\n", UDP_PORT_CLIENT);
+      // TODO print the lines received from AND and OR servers 
+
       printf("The edge server has successfully finished receiving all computation results from Backend-Server OR and Backend-Server AND.\n");
       combine_results();
-
+      /*
       string final_results = read_combined_results();
       const char *response = final_results.c_str();
       
       if (send(new_fd, response, final_results.length(), 0) == -1) {
         perror("send");
       }
-      
+      */
+
+      string value;
+      ifstream in("results.txt");
+      while(in) {
+        if(!getline(in, value, '\n')) {
+            break;
+          } else {
+          value.append("\n");
+          //cout << value << endl;
+          if (send(new_fd, &value, value.length() + 1, 0) == -1) {
+            perror("send");
+          } 
+        }
+      }
+      in.close();
+
       printf("The edge server has successfully finished sending all computation results to the client.\n");
+
+      ////////////////////////
+      value = "Q";
+      if (send(new_fd, &value, value.length() + 1, 0) == -1) {
+        perror("send");
+      }      
+      ////////////////////////
 
       close(new_fd);
       exit(0);
     }
-    close(new_fd);  
+    //close(new_fd);  
   }
 
   return 0;

@@ -14,7 +14,7 @@
 
 #define UDP_PORT "22299" // the port that the server will listen on, for requests from edge server
 #define UDP_PORT_EDGE "24299"
-#define MAXBUFLEN 100
+#define MAXBUFLEN 1500
 #define LOCALHOST "127.0.0.1"
 
 using namespace std;
@@ -174,6 +174,7 @@ int send_results() {
     fprintf(stderr, "talker: failed to create socket\n");
     return 2;
   }
+  //cout << response << "YOYOYOY" << endl;
 
   if ((numbytes = sendto(sockfd, response, strlen(response), 0,
        p->ai_addr, p->ai_addrlen)) == -1) {
@@ -239,22 +240,21 @@ int start_server() {
 
   addr_len = sizeof their_addr;
 
-
   while(true) {
-    if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
+    
+    if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1 , 0,
       (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("recvfrom");
       exit(1);
     }
 
     printf("The Server AND start receiving lines from the edge server for AND computation.\nThe computation results are:\n");
-
-    //printf("listener: packet is %d bytes long\n", numbytes);
     buf[numbytes] = '\0';
-
+ 
     ofstream requestfile;
     requestfile.open("and_temp.txt");
     requestfile << buf << endl;
+
     requestfile.close();
 
     compute_results();

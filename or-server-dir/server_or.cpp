@@ -14,7 +14,7 @@
  
 #define UDP_PORT "21299" // the port that the server will listen on, for requests from edge server
 #define UDP_PORT_EDGE "24299"
-#define MAXBUFLEN 100
+#define MAXBUFLEN 1500
 #define LOCALHOST "127.0.0.1"
 
 using namespace std;
