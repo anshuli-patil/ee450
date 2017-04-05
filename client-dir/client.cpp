@@ -51,7 +51,6 @@ int start_server(char *filename) {
 		return 1;
 	}
 
-	// loop through all the results and connect to the first we can
 	for(p = servinfo; p != NULL; p = p->ai_next) {
 		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
 			perror("client: socket");
@@ -70,10 +69,11 @@ int start_server(char *filename) {
 	if (p == NULL) {
 		fprintf(stderr, "client: failed to connect\n");
 		return 2;
+	} else {
+		printf("The client is up and running.\n");
 	}
 
-	inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
-			s, sizeof s);
+	inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
 	printf("client: connecting to %s\n", s);
 
 	freeaddrinfo(servinfo); 
@@ -84,7 +84,7 @@ int start_server(char *filename) {
 	      break;
 	    } else {
 			value.append("\n");
-			cout << value << endl;
+			//cout << value << endl;
 			if (send(sockfd, &value, value.length() + 1, 0) == -1) {
 		        perror("send");
 			}
@@ -110,7 +110,7 @@ int start_server(char *filename) {
 	printf("client: received '%s'\n",buf);
 	*/
 
-	cout << "Receiving data from server: " << endl;
+	//cout << "Receiving data from server: " << endl;
 	while ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) != -1) {
 		//cout << numbytes << endl;
 		if(numbytes == -1) {
@@ -128,9 +128,9 @@ int start_server(char *filename) {
 		  cout << "Finished received queries" << endl;
 		  break;
 		}*/
-		if()
+		
 	}
-
+	printf("The client has successfully finished receiving all computation results from the edge server.\n");
 	close(sockfd);
 
 	return 0;

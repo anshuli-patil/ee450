@@ -83,11 +83,11 @@ void combine_results() {
     //cout << "nextLineStr " << orResultStr << " " << andResultStr << endl;
     if((nextLineOr != -2 && nextLineOr < nextLineAnd) || nextLineAnd == -2) {
       result << orResultStr << endl;
-      cout << orResultStr << " or" << endl;
+      //cout << orResultStr << " or" << endl;
       nextLineOr = -1;
     } else if((nextLineAnd != -2 && nextLineOr > nextLineAnd) || nextLineOr == -2){
       result << andResultStr << endl;
-      cout << andResultStr << " and" << endl;
+      //cout << andResultStr << " and" << endl;
       nextLineAnd = -1;
     }
   }
@@ -134,9 +134,10 @@ void split_jobs() {
       } else if(operatorType.find("or") != std::string::npos) {
         orLines += 1;
         orfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
-      } 
+      }
+
+      lineNumber += 1; 
     }
-    lineNumber += 1;
   }
 
   printf("The edge server has received %d lines from the client using TCP over port %s.\n", lineNumber, TCP_PORT);
@@ -188,15 +189,12 @@ int get_response_backend(string backendType) {
 
   // loop through all the results and bind to the first we can
   for(p = servinfo; p != NULL; p = p->ai_next) {
-    if ((sockfd = socket(p->ai_family, p->ai_socktype,
-        p->ai_protocol)) == -1) {
-      perror("listener: socket");
+    if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
       continue;
     }
 
     if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
       close(sockfd);
-      perror("listener: bind");
       continue;
     }
 
@@ -204,18 +202,13 @@ int get_response_backend(string backendType) {
   }
 
   if (p == NULL) {
-    fprintf(stderr, "listener: failed to bind socket\n");
     return 2;
   }
 
   freeaddrinfo(servinfo);
 
-  printf("listener: waiting to recvfrom...\n");
-
   addr_len = sizeof their_addr;
-  if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1 , 0,
-    (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-    perror("recvfrom");
+  if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1 , 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
     exit(1);
   }
 
@@ -226,8 +219,9 @@ int get_response_backend(string backendType) {
       s, sizeof s));
   printf("listener: packet is %d bytes long\n", numbytes);
   */
+
   buf[numbytes] = '\0';
-  printf("listener: packet contains \"%s\"\n", buf);
+  //printf("listener: packet contains \"%s\"\n", buf);
 
   close(sockfd);
 
@@ -357,7 +351,7 @@ int send_queries_backend_bak(string backendType) {
         break;
       } else {
       value.append("\n");
-      cout << value << endl;
+      //cout << value << endl;
       if ((numbytes = sendto(sockfd, &value, value.length(), 0, p->ai_addr, p->ai_addrlen)) == -1) {
           perror("send");
       }
@@ -473,7 +467,7 @@ int start_server() {
 
         buf[numbytes] = '\0';
         //cout << "printing to file " << endl;
-        cout << buf;
+        //cout << buf;
         queriesfile << buf;
 
         if(numbytes < MAXDATASIZE - 1) {
