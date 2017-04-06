@@ -25,78 +25,7 @@
 using namespace std;
 
 // global variables
-string orResultStr;
-string andResultStr;
 int andLines, orLines;
-
-int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
-  int lineNumber = -1;
-  string value;
-
-  if(lineNumPrevious == -1) {
-      getline(resultFile, value, '\n');
-      //cout << "[" << value << "]" << endl;
-      if(resultFile && value.length() != 0 && value.find(',') != -1) { 
-        string resultStr = string(value, value.find(',') + 1, value.length());
-        //cout << operatorType << endl;
-        if(operatorType.compare("and") == 0) {
-          andResultStr = resultStr;
-        } else if (operatorType.compare("or") == 0) {
-          orResultStr = resultStr;
-        }
-
-        lineNumber = stoi(string(value, 0, value.find(',')));
-      } else {
-        // -2 indicates that the file has been completely read
-        lineNumber = -2;
-      }
-  } else {
-    lineNumber = lineNumPrevious;
-  }
-  
-  return lineNumber;
-}
-
-void combine_results() {
-  fstream andfile("and_results_edge.txt");
-  fstream orfile("or_results_edge.txt");
-  ofstream result;
-  result.open ("results.txt");
-
-  int lineNumber = 0;
-  // -1 indicates next lineNumber in file isn't read yet
-  int nextLineAnd = -1;
-  int nextLineOr = -1;
-
-  string value;
-
-  // merge the two files using line numbers
-  while(1) { 
-    nextLineOr = getNextLine(orfile, nextLineOr, "or");
-    nextLineAnd = getNextLine(andfile, nextLineAnd, "and");
-
-    // terminate when both result files are done
-    if(nextLineAnd == -2 && nextLineOr == -2) {
-      break;
-    }
-    //cout << "nextLine " << nextLineOr << " " << nextLineAnd << endl;
-    //cout << "nextLineStr " << orResultStr << " " << andResultStr << endl;
-    if((nextLineOr != -2 && nextLineOr < nextLineAnd) || nextLineAnd == -2) {
-      result << orResultStr << endl;
-      //cout << orResultStr << " or" << endl;
-      nextLineOr = -1;
-    } else if((nextLineAnd != -2 && nextLineOr > nextLineAnd) || nextLineOr == -2){
-      result << andResultStr << endl;
-      //cout << andResultStr << " and" << endl;
-      nextLineAnd = -1;
-    }
-  }
-
-  andfile.close();
-  orfile.close();
-  result.close();
-
-}
 
 void split_jobs() {
   fstream in("edge_file.txt");
@@ -134,6 +63,8 @@ void split_jobs() {
       } else if(operatorType.find("or") != std::string::npos) {
         orLines += 1;
         orfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
+      } else {
+        lineNumber -= 1;
       }
 
       lineNumber += 1; 
@@ -363,7 +294,7 @@ int send_queries_backend_bak(string backendType) {
   close(sockfd);
   return linesCount;
 }
-
+/*
 string read_combined_results() {
   ifstream responsefile;
   responsefile.open("results.txt");
@@ -382,6 +313,7 @@ string read_combined_results() {
   responsefile.close();
   return response_str;
 }
+*/
 
 int start_server() {
   int sockfd, new_fd;  
@@ -518,7 +450,7 @@ int start_server() {
       // TODO print the lines received from AND and OR servers 
 
       printf("The edge server has successfully finished receiving all computation results from Backend-Server OR and Backend-Server AND.\n");
-      combine_results();
+      
       /*
       string final_results = read_combined_results();
       const char *response = final_results.c_str();
@@ -529,9 +461,11 @@ int start_server() {
       */
 
       string value;
-      ifstream in("results.txt");
-      while(in) {
-        if(!getline(in, value, '\n')) {
+
+      // send the computations for AND
+      ifstream in_and("and_results_edge.txt");
+      while(in_and) {
+        if(!getline(in_and, value, '\n')) {
             break;
           } else {
           value.append("\n");
@@ -541,16 +475,31 @@ int start_server() {
           } 
         }
       }
-      in.close();
+      in_and.close();
 
-      printf("The edge server has successfully finished sending all computation results to the client.\n");
+      // send the computations for OR
+      ifstream in_or("or_results_edge.txt");
+      while(in_or) {
+        if(!getline(in_or, value, '\n')) {
+            break;
+          } else {
+          value.append("\n");
+          //cout << value << endl;
+          if (send(new_fd, &value, value.length() + 1, 0) == -1) {
+            perror("send");
+          } 
+        }
+      }
+      in_or.close();
 
-      ////////////////////////
+      /*
       value = "Q";
       if (send(new_fd, &value, value.length() + 1, 0) == -1) {
         perror("send");
-      }      
-      ////////////////////////
+      }
+      */
+      
+      printf("The edge server has successfully finished sending all computation results to the client.\n");
 
       close(new_fd);
       exit(0);
