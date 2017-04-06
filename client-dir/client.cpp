@@ -29,7 +29,8 @@ int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
   string value;
 
   if(lineNumPrevious == -1) {
-      getline(resultFile, value, '\n');
+      getline(resultFile, value, '*');
+      value = value.substr(1, value.length()); // gets rid of CR/LF whatever chars
 
       //cout << "[" << value << "]" << endl;
       if(resultFile && value.length() != 0 && value.find(',') != -1) { 
@@ -104,6 +105,19 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+void print_results() {
+	string output;
+    ifstream resultsfile("results.txt");
+
+    if(resultsfile.is_open()) {
+
+        while(!resultsfile.eof()) {
+            getline(resultsfile, output);
+            cout << output << endl;
+        }
+    }
+}
+
 int start_server(char *filename) {
 	fstream in(filename); // the queries file
 
@@ -150,6 +164,7 @@ int start_server(char *filename) {
 	freeaddrinfo(servinfo); 
 	string value;
 
+	int queriesCount = 0;
 	while(in) {
 		if(!getline(in, value, '\n')) {
 	      break;
@@ -158,9 +173,12 @@ int start_server(char *filename) {
 			//cout << value << endl;
 			if (send(sockfd, &value, value.length() + 1, 0) == -1) {
 		        perror("send");
+			} else if(value.length() > 1) {
+				queriesCount += 1;
 			}
 		}
 	}
+	printf("The client has successfully finished sending %d lines to the edge server.\n", queriesCount);
 	/*
 	value = "Q";
 	if (send(sockfd, &value, value.length() + 1, 0) == -1) {
@@ -233,13 +251,13 @@ int start_server(char *filename) {
   		}
 	}
 	result_or.close();
-	printf("The client has successfully finished receiving all computation results from the edge server.\n");
+	printf("The client has successfully finished receiving all computation results from the edge server.\nThe final computation results are:\n");
 	close(sockfd);
 
 	//call combine_results and print final output
-	//combine_results();
+	combine_results();
+	print_results();
 
-	// TODO print the final results
 	return 0;
 }
 

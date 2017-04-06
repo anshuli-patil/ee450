@@ -460,7 +460,7 @@ int start_server() {
       }
       */
 
-      string value = "temp";
+      string value;
 
       // send the computations for AND
       ifstream in_and("and_results_edge.txt");
@@ -468,7 +468,7 @@ int start_server() {
         if(!getline(in_and, value, '\n')) {
             break;
           } else {
-          value.append("\n");
+          value.append("*");
           //cout << value << endl;
           if (send(new_fd, &value, value.length() + 1, 0) == -1) {
             perror("send");
@@ -489,7 +489,7 @@ int start_server() {
         if(!getline(in_or, value, '\n')) {
             break;
           } else {
-          value.append("\n");
+          value.append("*");
           //cout << value << endl;
           if (send(new_fd, &value, value.length() + 1, 0) == -1) {
             perror("send");
