@@ -191,11 +191,18 @@ int start_server(char *filename) {
 		}
 
 		buf[numbytes] = '\0';
-		result_and << buf;
-		//cout << buf;
+		/*
 		if(numbytes < MAXDATASIZE - 1) {
 			break;
-		}
+		}*/
+		string quit_check(buf);
+		std::size_t found = quit_check.find('Q');
+  		if (found != std::string::npos) {
+  			result_and << quit_check.substr(0, found);
+  			break;
+  		} else {
+			result_and << buf;
+  		}
 	}
 	result_and.close();
 
@@ -208,14 +215,22 @@ int start_server(char *filename) {
 		  return 1;
 		}
 
-		buf[numbytes] = '\0';
-		result_or << buf;
-		//cout << buf;
-		
+		/*
 		if(numbytes < MAXDATASIZE - 1) {
 			//printf("Q found! buf[0] = %c\n", buf[0]);
 			break;
-		} 
+		} */
+
+		buf[numbytes] = '\0';
+
+		string quit_check(buf);
+		std::size_t found = quit_check.find('Q');
+  		if (found != std::string::npos) {
+  			result_or << quit_check.substr(0, found);
+  			break;
+  		} else {
+			result_or << buf;
+  		}
 	}
 	result_or.close();
 	printf("The client has successfully finished receiving all computation results from the edge server.\n");

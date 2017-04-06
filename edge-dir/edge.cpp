@@ -477,6 +477,12 @@ int start_server() {
       }
       in_and.close();
 
+      // done with sending AND computations
+      value = "Q";
+      if (send(new_fd, &value, value.length() + 1, 0) == -1) {
+        perror("send");
+      }
+
       // send the computations for OR
       ifstream in_or("or_results_edge.txt");
       while(in_or) {
@@ -492,12 +498,12 @@ int start_server() {
       }
       in_or.close();
 
-      /*
+      // done with sending OR computations
       value = "Q";
       if (send(new_fd, &value, value.length() + 1, 0) == -1) {
         perror("send");
       }
-      */
+      
       
       printf("The edge server has successfully finished sending all computation results to the client.\n");
 
