@@ -30,6 +30,7 @@ int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
 
   if(lineNumPrevious == -1) {
       getline(resultFile, value, '\n');
+
       //cout << "[" << value << "]" << endl;
       if(resultFile && value.length() != 0 && value.find(',') != -1) { 
         string resultStr = string(value, value.find(',') + 1, value.length());
@@ -192,7 +193,6 @@ int start_server(char *filename) {
 		buf[numbytes] = '\0';
 		result_and << buf;
 		//cout << buf;
-
 		if(numbytes < MAXDATASIZE - 1) {
 			break;
 		}
@@ -211,7 +211,7 @@ int start_server(char *filename) {
 		buf[numbytes] = '\0';
 		result_or << buf;
 		//cout << buf;
-
+		
 		if(numbytes < MAXDATASIZE - 1) {
 			//printf("Q found! buf[0] = %c\n", buf[0]);
 			break;

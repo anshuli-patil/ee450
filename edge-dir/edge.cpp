@@ -460,7 +460,7 @@ int start_server() {
       }
       */
 
-      string value;
+      string value = "temp";
 
       // send the computations for AND
       ifstream in_and("and_results_edge.txt");
