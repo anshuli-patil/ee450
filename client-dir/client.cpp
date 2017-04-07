@@ -25,7 +25,7 @@ using namespace std;
 string orResultStr;
 string andResultStr;
 
-int getNextLine(ifstream &resultFile, int lineNumPrevious, string operatorType) {
+int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
   int lineNumber = -1;
   string value;
 
