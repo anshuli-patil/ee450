@@ -12,13 +12,14 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <cstring>
 
 #define TCP_PORT "23299"  // the port users will be connecting to
 #define UDP_PORT_AND "22299" // the port edge will use a client for the backend servers 
 #define UDP_PORT_OR "21299" 
 #define UDP_PORT_CLIENT "24299" // edge server uses a static port when it's a client for server_(and|or)
 #define LOCALHOST "127.0.0.1"
-#define MAXDATASIZE 100 
+#define MAXDATASIZE 1500 
 #define BACKLOG 10   
 #define MAXBUFLEN 1500
 
@@ -28,7 +29,7 @@ using namespace std;
 int andLines, orLines;
 
 void split_jobs() {
-  fstream in("edge_file.txt");
+  ifstream in("edge_file.txt");
   string value;
   int lineNumber = 0;
 
@@ -37,38 +38,32 @@ void split_jobs() {
   ofstream orfile;
   orfile.open ("or.txt");
 
-  while(in) {
+  while(getline(in, value, ',')) {
     string operatorType = "";
+    operatorType = string(value, 0, value.length());
 
-    // if no more text, break out of loop
-    if(!getline(in, value, ',')) {
+    // check if just newline before EOF
+    if(operatorType.compare("\n") == 0) {
       break;
-    } else {
-      operatorType = string(value, 0, value.length());
-
-      // check if just newline before EOF
-      if(operatorType.compare("\n") == 0) {
-        break;
-      }
-
-      getline(in, value, ',');
-      string operand1_str = string(value, 0, value.length());
-
-      getline(in, value, '\n');
-      string operand2_str = string(value, 0, value.length());
-
-      if(operatorType.find("and") != std::string::npos) {
-        andLines += 1;
-        andfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
-      } else if(operatorType.find("or") != std::string::npos) {
-        orLines += 1;
-        orfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
-      } else {
-        lineNumber -= 1;
-      }
-
-      lineNumber += 1; 
     }
+
+    getline(in, value, ',');
+    string operand1_str = string(value, 0, value.length());
+
+    getline(in, value, '\n');
+    string operand2_str = string(value, 0, value.length());
+
+    if(operatorType.find("and") != std::string::npos) {
+      andLines += 1;
+      andfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
+    } else if(operatorType.find("or") != std::string::npos) {
+      orLines += 1;
+      orfile << lineNumber << "," << operand1_str << "," << operand2_str << endl;
+    } else {
+      lineNumber -= 1;
+    }
+
+    lineNumber += 1;
   }
 
   printf("The edge server has received %d lines from the client using TCP over port %s.\n", lineNumber, TCP_PORT);
@@ -77,25 +72,22 @@ void split_jobs() {
   in.close();
 }
 
-void sigchld_handler(int s)
-{
-  // waitpid() might overwrite errno, so we save and restore it:
-  int saved_errno = errno;
-
-  while(waitpid(-1, NULL, WNOHANG) > 0);
-
-  errno = saved_errno;
+void *get_in_addr(struct sockaddr *addr) {
+  if (addr->sa_family == AF_INET) {
+    // IPv4
+    return &((( struct sockaddr_in* )addr)->sin_addr);
+  } else {
+    // IPv6
+    return &((( struct sockaddr_in6* )addr)->sin6_addr);
+  }
 }
 
-
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-  if (sa->sa_family == AF_INET) {
-    return &(((struct sockaddr_in*)sa)->sin_addr);
+void sigchld_handler(int s) {
+  int saved_errno = errno;
+  while(waitpid(-1, NULL, WNOHANG) > 0) {
+    // do nothing
   }
-
-  return &(((struct sockaddr_in6*)sa)->sin6_addr);
+  errno = saved_errno;
 }
 
 int get_response_backend(string backendType) {
@@ -114,11 +106,10 @@ int get_response_backend(string backendType) {
   hints.ai_flags = AI_PASSIVE; // use my IP
 
   if ((rv = getaddrinfo(NULL, UDP_PORT_CLIENT, &hints, &servinfo)) != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     return 1;
   }
 
-  // loop through all the results and bind to the first we can
+  // binding to socket - check available sockets
   for(p = servinfo; p != NULL; p = p->ai_next) {
     if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
       continue;
@@ -128,7 +119,6 @@ int get_response_backend(string backendType) {
       close(sockfd);
       continue;
     }
-
     break;
   }
 
@@ -157,7 +147,12 @@ int get_response_backend(string backendType) {
   close(sockfd);
 
   ofstream requestfile;
-  requestfile.open(backendType + "_results_edge.txt");
+  //requestfile.open(backendType + "_results_edge.txt");
+  if(backendType.compare("and") == 0) {
+    requestfile.open("and_results_edge.txt");
+  } else if(backendType.compare("or") == 0) {
+    requestfile.open("or_results_edge.txt");
+  }
   requestfile << buf << endl;
   requestfile.close();
 
@@ -216,104 +211,18 @@ int send_queries_backend(string backendType) {
   }
 
   if (p == NULL) {
-    fprintf(stderr, "talker: failed to create socket\n");
     return 2;
   }
 
-  if ((numbytes = sendto(sockfd, request, strlen(request), 0,
-       p->ai_addr, p->ai_addrlen)) == -1) {
+  if ((numbytes = sendto(sockfd, request, strlen(request), 0, p->ai_addr, p->ai_addrlen)) == -1) {
     exit(1);
   }
 
   freeaddrinfo(servinfo);
 
-  //printf("talker: sent %d bytes to %s\n", numbytes, request);
   close(sockfd);
   return linesCount;
 }
-
-int send_queries_backend_bak(string backendType) {
-  int sockfd;
-  struct addrinfo hints, *servinfo, *p;
-  int rv;
-  int numbytes;
-  int linesCount = 0;
-
-  ifstream requestfile;
-  if(backendType.compare("and") == 0) {
-    requestfile.open("and.txt");
-  } else if(backendType.compare("or") == 0) {
-    requestfile.open("or.txt");
-  }
-
-  memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_DGRAM;
-
-  if(backendType.compare("and") == 0) {
-    if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_AND, &hints, &servinfo)) != 0) {
-      return 1;
-    }
-  } else if(backendType.compare("or") == 0) {
-      if ((rv = getaddrinfo(LOCALHOST, UDP_PORT_OR, &hints, &servinfo)) != 0) {
-      return 1;
-    }
-  }
-
-  for(p = servinfo; p != NULL; p = p->ai_next) {
-    if ((sockfd = socket(p->ai_family, p->ai_socktype,
-        p->ai_protocol)) == -1) {
-      perror("talker: socket");
-      continue;
-    }
-
-    break;
-  }
-
-  if (p == NULL) {
-    fprintf(stderr, "talker: failed to create socket\n");
-    return 2;
-  }
-
-  string value;
-
-  while(requestfile) {
-    if(!getline(requestfile, value, '\n')) {
-        break;
-      } else {
-      value.append("\n");
-      //cout << value << endl;
-      if ((numbytes = sendto(sockfd, &value, value.length(), 0, p->ai_addr, p->ai_addrlen)) == -1) {
-          perror("send");
-      }
-    }
-  }
-  freeaddrinfo(servinfo);
-
-  //printf("talker: sent %d bytes to %s\n", numbytes, request);
-  close(sockfd);
-  return linesCount;
-}
-/*
-string read_combined_results() {
-  ifstream responsefile;
-  responsefile.open("results.txt");
-  
-  string response_str;
-  string value;
-  while(responsefile) {
-    if(!getline(responsefile, value, '\n')) {
-      break;
-    } else {
-      response_str.append(string(value, 0, value.length()));
-      response_str.append("\n");
-    }
-  }
-  
-  responsefile.close();
-  return response_str;
-}
-*/
 
 int start_server() {
   int sockfd, new_fd;  
@@ -338,13 +247,11 @@ int start_server() {
   }
 
   for(p = servinfo; p != NULL; p = p->ai_next) {
-    if ((sockfd = socket(p->ai_family, p->ai_socktype,
-        p->ai_protocol)) == -1) {
+    if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
       continue;
     }
 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-        sizeof(int)) == -1) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
       exit(1);
     }
 
@@ -378,11 +285,8 @@ int start_server() {
       continue;
     }
 
-    inet_ntop(their_addr.ss_family,
-      get_in_addr((struct sockaddr *)&their_addr),
-      s, sizeof s);
-    //printf("server: got connection from %s\n", s);
-
+    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
+    
     if (!fork()) { 
       //child process
 
@@ -390,22 +294,14 @@ int start_server() {
       ofstream queriesfile;
       queriesfile.open ("edge_file.txt");
 
-      //cout << "Receiving data from client" << endl;
-      while ((numbytes = recv(new_fd, buf, MAXDATASIZE - 1, 0)) != -1) {
+      if ((numbytes = recv(new_fd, buf, MAXDATASIZE - 1, 0)) != -1) {
         //cout << numbytes << endl;
-        if(numbytes == -1) {
-          return 1;
-        }
-
+        
         buf[numbytes] = '\0';
-        //cout << "printing to file " << endl;
-        //cout << buf;
         queriesfile << buf;
 
-        if(numbytes < MAXDATASIZE - 1) {
-          //cout << "Finished received queries" << endl;
-          break;
-        }
+      } else {
+        return 1;
       }
       
       //queriesfile << buf << endl;
@@ -464,16 +360,13 @@ int start_server() {
 
       // send the computations for AND
       ifstream in_and("and_results_edge.txt");
-      while(in_and) {
-        if(!getline(in_and, value, '\n')) {
-            break;
-          } else {
-          value.append("*");
-          //cout << value << endl;
-          if (send(new_fd, &value, value.length() + 1, 0) == -1) {
-            perror("send");
-          } 
-        }
+      // TODO remove while loops 
+      while(getline(in_and, value, '\n')) {
+        value.append("*");
+        //cout << value << endl;
+        if (send(new_fd, &value, value.length() + 1, 0) == -1) {
+          perror("send");
+        } 
       }
       in_and.close();
 

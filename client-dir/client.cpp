@@ -12,11 +12,12 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <cstring>
 
 #define TCP_PORT "23299" // the port on edge that clients will be connecting to 
 #define LOCALHOST "127.0.0.1"
 
-#define MAXDATASIZE 100 // max number of bytes we can get at once 
+#define MAXDATASIZE 1500 // max number of bytes we can get at once 
 
 using namespace std;
 
@@ -24,7 +25,7 @@ using namespace std;
 string orResultStr;
 string andResultStr;
 
-int getNextLine(fstream &resultFile, int lineNumPrevious, string operatorType) {
+int getNextLine(ifstream &resultFile, int lineNumPrevious, string operatorType) {
   int lineNumber = -1;
   string value;
 
@@ -95,14 +96,14 @@ void combine_results() {
 
 }
 
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in*)sa)->sin_addr);
-	}
-
-	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+void *get_in_addr(struct sockaddr *addr) {
+  if (addr->sa_family == AF_INET) {
+    // IPv4
+    return &((( struct sockaddr_in* )addr)->sin_addr);
+  } else {
+    // IPv6
+    return &((( struct sockaddr_in6* )addr)->sin6_addr);
+  }
 }
 
 void print_results() {
@@ -119,7 +120,7 @@ void print_results() {
 }
 
 int start_server(char *filename) {
-	fstream in(filename); // the queries file
+	ifstream in(filename); // the queries file
 
 	int sockfd, numbytes;  
 	char buf[MAXDATASIZE];
@@ -132,18 +133,15 @@ int start_server(char *filename) {
 	hints.ai_socktype = SOCK_STREAM;
 
 	if ((rv = getaddrinfo(LOCALHOST, TCP_PORT, &hints, &servinfo)) != 0) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
 
 	for(p = servinfo; p != NULL; p = p->ai_next) {
 		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-			perror("client: socket");
 			continue;
 		}
 
 		if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-			perror("client: connect");
 			close(sockfd);
 			continue;
 		}
@@ -152,31 +150,29 @@ int start_server(char *filename) {
 	}
 
 	if (p == NULL) {
-		fprintf(stderr, "client: failed to connect\n");
 		return 2;
 	} else {
 		printf("The client is up and running.\n");
 	}
 
 	inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-	//printf("client: connecting to %s\n", s);
 
 	freeaddrinfo(servinfo); 
-	string value;
 
+	string value;
 	int queriesCount = 0;
-	while(in) {
-		if(!getline(in, value, '\n')) {
-	      break;
-	    } else {
-			value.append("\n");
-			//cout << value << endl;
-			if (send(sockfd, &value, value.length() + 1, 0) == -1) {
-		        perror("send");
-			} else if(value.length() > 1) {
-				queriesCount += 1;
-			}
+	string query;
+	while(getline(in, value, '\n')) {
+		value.append("\n");
+		query.append(value);
+		//cout << value << endl;
+		if(value.length() >= 1) {
+			queriesCount += 1;
 		}
+	}
+	
+	if (send(sockfd, &query, query.length() + 1, 0) == -1) {
+		perror("ERROR : couldn't send query to edge server.");
 	}
 	printf("The client has successfully finished sending %d lines to the edge server.\n", queriesCount);
 	/*
